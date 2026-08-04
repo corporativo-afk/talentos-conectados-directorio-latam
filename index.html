@@ -218,6 +218,21 @@ button{ font-family: var(--font-body); cursor:pointer; }
 }
 .nav-btn.locked:hover{ transform:none; background:transparent; }
 .lock-icon{ font-size:.8rem; }
+/* Config: solo el ícono, discreto — casi nadie fuera de administración
+   debe notar que está ahí. Se separa un poco del resto de botones. */
+.nav-btn.icon-only{
+  border-color: transparent;
+  padding: 8px 10px;
+  font-size: 1rem;
+  opacity: .55;
+  margin-left: 6px;
+}
+.nav-btn.icon-only:hover:not(:disabled){
+  opacity: 1;
+  background: rgba(255,255,255,0.14);
+  border-color: rgba(255,255,255,0.35);
+  transform: none;
+}
 
 /* MEJORA 1 — selector de idioma en la barra de navegación */
 .lang-switch{
@@ -434,6 +449,42 @@ textarea{ resize: vertical; min-height: 110px; }
   margin: -4px 0 14px;
 }
 .privacy-note .pn-icon{ flex-shrink:0; }
+/* Aviso reforzado (rojo) para reglas que, si se incumplen, exponen a la
+   persona a un riesgo real (ej: datos de contacto en el portafolio) —
+   se ve distinto a un privacy-note informativo normal a propósito. */
+.privacy-note-danger{
+  background: rgba(200,50,45,0.08);
+  border: 1.5px solid #c8322d;
+  color: #a12822;
+  font-weight: 600;
+}
+
+/* Enlace de T&C: grande, sin borde, subrayado — no parece botón, invita a leer. */
+.terms-link-btn{
+  background:none; border:none; padding:0;
+  font-size: 1rem; font-weight:700;
+  color: var(--blue-dk);
+  text-decoration: underline;
+  cursor:pointer;
+}
+.terms-link-btn:hover{ color: var(--navy); }
+#terms-status-hint{ margin-top:6px; }
+#terms-status-hint.accepted{ color: #1a7a3c; font-weight:600; }
+
+/* Modal de T&C: cuerpo con scroll propio (para detectar cuándo la persona
+   llegó al final) y botón Aceptar que empieza inhabilitado. */
+#terms-modal .modal-content{ max-width: 620px; }
+#terms-scroll-body{
+  max-height: 50vh;
+  overflow-y: auto;
+  padding: 4px 4px 4px 0;
+  border: 1px solid rgba(0,0,0,0.1);
+  border-radius: var(--radius-sm);
+  margin: 10px 0 16px;
+}
+#terms-scroll-body h3{ margin-top:0; }
+#terms-accept-btn:disabled{ opacity:.5; cursor:not-allowed; }
+#terms-scroll-hint{ font-size:.82rem; color: var(--ink-soft); margin: 0 0 10px; }
 
 /* Bloques repetibles (experiencia, paquetes, portafolio): misma tarjeta
    reutilizada en las 3 secciones, con hasta N ítems y botón "Agregar"
@@ -1341,12 +1392,12 @@ textarea{ resize: vertical; min-height: 110px; }
          directorio comunitario es solo en español. La traducción vive
          aparte, en la landing para empresas alemanas (indexalemania.html). -->
     <button type="button" class="nav-btn guide-btn" id="nav-guide-btn" data-i18n="nav_guide">📖 Guía</button>
-    <button type="button" class="nav-btn guide-btn" id="nav-scam-btn" title="Reportar un posible estafador">🚨 Alerta de estafa</button>
     <button type="button" class="nav-btn" data-goto="form" id="nav-form-btn" data-i18n="nav_form">Registro</button>
     <button type="button" class="nav-btn locked" data-goto="dashboard" id="nav-dashboard-btn" disabled>
       <span class="lock-icon" aria-hidden="true">🔒</span> <span data-i18n="nav_dashboard">Directorio</span>
     </button>
-    <button type="button" class="nav-btn guide-btn" id="nav-config-btn" title="Administración" data-i18n="nav_config">⚙️ Config</button>
+    <button type="button" class="nav-btn guide-btn locked" id="nav-scam-btn" title="Disponible después de registrarte" disabled>🚨 Alerta de estafa</button>
+    <button type="button" class="nav-btn icon-only" id="nav-config-btn" title="Administración">⚙️</button>
   </div>
 </nav>
 
@@ -1609,9 +1660,9 @@ textarea{ resize: vertical; min-height: 110px; }
       <fieldset class="field-group profile-structured-fieldset hidden">
         <legend data-i18n="portafolio_items_legend">Portafolio</legend>
         <p class="field-hint" data-i18n="portafolio_items_hint">Muestra hasta 5 trabajos tuyos. Se publican de inmediato en tu perfil, sin revisión previa. Máximo 5.</p>
-        <div class="privacy-note">
-          <span class="pn-icon">🔒</span>
-          <span data-i18n="portafolio_items_privacy_note">No incluyas datos de contacto (teléfono, correo, redes) ni en el texto ni dentro del archivo — el portafolio es visible públicamente.</span>
+        <div class="privacy-note privacy-note-danger">
+          <span class="pn-icon">🚫</span>
+          <span data-i18n="portafolio_items_privacy_note">NUNCA incluyas datos de contacto (teléfono, correo, usuarios de redes, links) ni en el texto ni dentro del archivo. Este portafolio también se usa para presentarte ante empresas internacionales, donde el contacto directo con el freelancer SIEMPRE pasa por la agencia — es la única garantía real que podemos dar contra estafas ahí. Si metes datos de contacto, tu perfil no se elimina, pero queda fuera de esas oportunidades hasta que lo corrijas.</span>
         </div>
         <div class="repeatable-list" id="portafolio-list"></div>
         <button type="button" class="repeatable-add-btn" id="portafolio-add-btn">+ Agregar ítem de portafolio</button>
@@ -1620,13 +1671,13 @@ textarea{ resize: vertical; min-height: 110px; }
       <!-- MEJORA C: Tarifas y paquetes privados (solo Profesional, NUNCA visibles en el directorio público) -->
       <fieldset class="field-group hidden" id="rates-field-group">
         <legend data-i18n="rates_legend">Tarifas y paquetes</legend>
-        <div class="privacy-note">
-          <span class="pn-icon">🔒</span>
-          <span data-i18n="rates_privacy_note">Esta información es privada: NO se muestra en el directorio público ni en tu perfil visible. Solo la puede ver la administración, para fines internos.</span>
-        </div>
         <div class="field">
           <label for="tarifa-hora"><span data-i18n="tarifa_hora_label">Tarifa por hora (USD)</span> <span class="opt" data-i18n="tag_optional">(opcional)</span></label>
           <input type="text" id="tarifa-hora" name="tarifaHora" maxlength="20" placeholder="Ej: 15" data-i18n-placeholder="tarifa_hora_placeholder">
+          <div class="privacy-note">
+            <span class="pn-icon">🔒</span>
+            <span data-i18n="rates_privacy_note">Esta tarifa NO se muestra en el Directorio comunitario ni en tu perfil visible aquí — así evitamos que se genere competencia de precios entre ustedes; cada quien conoce solo su propia tarifa. Se usa exclusivamente para el programa de agencia internacional (empresas en Alemania/Europa que contratan a través de nosotras). Nuestro compromiso: el monto que pongas aquí es exactamente lo que se te paga cuando te contraten por esa vía — ni más, ni menos. Sé honesto/a al ponerlo: hacemos estudios de mercado constantemente, y una tarifa muy por encima de lo real solo para cobrar más no será tomada en cuenta.</span>
+          </div>
         </div>
         <div class="field">
           <label><span data-i18n="paquetes_label">Paquetes de trabajo</span> <span class="opt" data-i18n="tag_optional">(opcional)</span></label>
@@ -1640,8 +1691,8 @@ textarea{ resize: vertical; min-height: 110px; }
         <div class="field">
           <label for="pitch"><span data-i18n="pitch_label" id="pitch-label-text">Preséntate</span> <span class="req">*</span></label>
           <p class="field-hint" data-i18n="pitch_hint" id="pitch-hint-text">Cuéntanos quién eres, qué haces y qué buscas — este es tu resumen profesional y se mostrará en tu perfil completo, así que dale contexto. Ej: "Ayudo a marcas de e-commerce a vender más con videos que sí convierten. Llevo 3 años trabajando con marcas de belleza y moda..."</p>
-          <textarea id="pitch" name="pitch" maxlength="700" rows="6" required placeholder="Describe quién eres, qué haces o qué buscas..." data-i18n-placeholder="pitch_placeholder"></textarea>
-          <span class="char-counter"><span id="pitch-count">0</span>/700</span>
+          <textarea id="pitch" name="pitch" maxlength="600" rows="6" required placeholder="Describe quién eres, qué haces o qué buscas..." data-i18n-placeholder="pitch_placeholder"></textarea>
+          <span class="char-counter"><span id="pitch-count">0</span>/600</span>
         </div>
       </fieldset>
 
@@ -1688,13 +1739,11 @@ textarea{ resize: vertical; min-height: 110px; }
       </fieldset>
 
       <div class="field terms-field" id="terms-field-wrap">
-        <label class="terms-check-label">
-          <input type="checkbox" id="terms-check">
-          <span>He leído y acepto los <a href="#" id="open-terms-link">Términos y Condiciones</a> de Talentos Conectados.</span>
-        </label>
+        <button type="button" id="open-terms-link" class="terms-link-btn">Ver Términos y Condiciones</button>
+        <p class="field-hint" id="terms-status-hint">Debes leerlos hasta el final y aceptarlos para poder registrarte.</p>
       </div>
 
-      <button type="submit" id="submit-btn">
+      <button type="submit" id="submit-btn" disabled>
         <span id="submit-btn-text" data-i18n="submit_create">Registrarme y desbloquear el Directorio</span>
       </button>
       <button type="button" id="cancel-edit-btn" class="hidden" data-i18n="cancel_edit">Cancelar edición</button>
@@ -2026,7 +2075,46 @@ textarea{ resize: vertical; min-height: 110px; }
       <p>Al registrarte en Talentos Conectados aceptas lo siguiente:</p>
       <p><strong>En el Directorio comunitario</strong> (donde Cliente y Profesional se contactan directamente), Talentos Conectados <strong>no es una empresa que gestiona pagos, contratos ni proyectos</strong> — es una herramienta de networking que conecta personas. Lo que ocurra entre las partes (acuerdos, pagos, incumplimientos) es responsabilidad de cada una. La plataforma enseña a reconocer estafas (ver punto 7), pero no puede garantizar la conducta de terceros ni participa en la negociación.</p>
       <p><strong>En el programa de agencia internacional</strong> (cuando Mariangel y su socia median directamente una negociación entre un freelancer de la comunidad y una empresa), sí asumen responsabilidad sobre la gestión de esa negociación puntual, porque ahí actúan como intermediarias activas del acuerdo.</p>
-      <p>Al marcar la casilla de aceptación en el formulario de registro, confirmas que leíste y entiendes esta distinción, y que usarás el directorio de forma honesta, sin publicar datos de contacto de terceros sin permiso ni información falsa sobre ti mismo.</p>
+      <p>Al aceptar los Términos y Condiciones en el formulario de registro, confirmas que leíste y entiendes esta distinción, y que usarás el directorio de forma honesta, sin publicar datos de contacto de terceros sin permiso ni información falsa sobre ti mismo.</p>
+
+      <h3>10. Tu tarifa por hora y el pago garantizado</h3>
+      <p>Si eres Profesional, tu tarifa por hora <strong>no se muestra en el Directorio comunitario ni en tu perfil visible</strong> — es información privada, exclusiva para el programa de agencia internacional (empresas en Alemania/Europa que contratan a través de nosotras). La mantenemos oculta a propósito, para que no se genere competencia de precios entre ustedes dentro de la comunidad: cada quien conoce solo su propia tarifa.</p>
+      <p><strong>Nuestro compromiso:</strong> el monto que pongas ahí es exactamente lo que se te paga cuando te contraten por esa vía — ni más, ni menos.</p>
+      <p>A cambio, te pedimos honestidad al ponerlo: hacemos estudios de mercado constantemente, y si una tarifa está muy por encima de lo real solo con la intención de cobrar más, no será tomada en cuenta.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== MODAL: TÉRMINOS Y CONDICIONES (gate de registro) ===================== -->
+<div id="terms-modal" class="modal hidden" aria-hidden="true">
+  <div class="modal-overlay" id="terms-modal-overlay"></div>
+  <div class="modal-content" role="dialog" aria-modal="true">
+    <button type="button" class="modal-close" id="terms-modal-close" aria-label="Cerrar">✕</button>
+    <div class="modal-body">
+      <span class="guide-tag">Términos y Condiciones</span>
+      <h2>Antes de registrarte, lee esto</h2>
+      <p id="terms-scroll-hint">Haz scroll hasta el final del texto para poder aceptar.</p>
+      <div id="terms-scroll-body">
+        <h3>Espíritu de la comunidad</h3>
+        <p>Talentos Conectados existe para que nos ayudemos entre todos: <strong>tú me usas, yo te uso, nos ayudamos entre todos</strong> — no es un espacio para usar a alguien y descartarlo. No se permite usar la plataforma para dañar, estafar o agredir a otra persona de la comunidad, de ninguna forma.</p>
+
+        <h3>Pagos</h3>
+        <p>En el Directorio comunitario, los métodos y condiciones de pago se acuerdan <strong>directamente entre cliente y freelancer</strong>, fuera de la plataforma. Talentos Conectados no procesa pagos ni va a construir un método de pago dentro del sistema, ni ahora ni en un futuro cercano.</p>
+        <p>Si registraste una tarifa por hora (Profesional): esa tarifa es privada, solo para el programa de agencia internacional, y no se muestra en el Directorio comunitario. Nuestro compromiso es pagarte exactamente ese monto cuando te contraten por esa vía — a cambio, te pedimos que la pongas de forma honesta (ver Guía, sección 10).</p>
+
+        <h3>Responsabilidad de la plataforma</h3>
+        <p><strong>En el Directorio comunitario</strong> (contacto directo entre Cliente y Profesional), Talentos Conectados es una herramienta de networking, no una empresa que gestiona pagos, contratos ni proyectos. Lo que ocurra entre las partes es responsabilidad de cada una; la plataforma enseña a reconocer estafas (ver la Guía, sección 7), pero no puede garantizar la conducta de terceros.</p>
+        <p><strong>En el programa de agencia internacional</strong> (cuando Mariangel y su socia median directamente una negociación entre un freelancer y una empresa), sí asumen responsabilidad sobre la gestión de esa negociación puntual, porque ahí actúan como intermediarias activas.</p>
+
+        <h3>Portafolio: sin datos de contacto, nunca</h3>
+        <p>Tu portafolio (hasta 5 ítems) es público y además se reutiliza para presentarte ante empresas internacionales en el programa de agencia. Por eso <strong>nunca debe incluir datos de contacto</strong> (teléfono, correo, usuario de redes, links) — ni en el texto ni dentro de los archivos. En el Directorio comunitario tu contacto sí es visible y cada quien es responsable de reconocer estafas; pero en el programa de agencia el contacto con el freelancer <strong>siempre pasa por la agencia</strong> — es la única garantía real que podemos dar contra estafas internacionales. Si tu portafolio incluye datos de contacto, tu perfil no se elimina, pero queda excluido de esas oportunidades hasta que lo corrijas.</p>
+
+        <h3>Sin reclamos fuera de este texto</h3>
+        <p>Al aceptar, entiendes que <strong>no tienes derecho a reclamar nada que no esté estipulado explícitamente aquí</strong>. Esta es una protección tanto para ti como para Talentos Conectados: deja claro, desde antes de registrarte, hasta dónde llega la responsabilidad de la plataforma.</p>
+
+        <p>Para la guía completa de cómo protegerte de estafas y buenas prácticas, revisa la <a href="#" id="terms-open-guide-link">Guía</a>.</p>
+      </div>
+      <button type="button" id="terms-accept-btn" class="admin-save-btn" disabled>Aceptar</button>
     </div>
   </div>
 </div>
@@ -2115,7 +2203,7 @@ textarea{ resize: vertical; min-height: 110px; }
 /* -----------------------------------------------------------
    1. CONFIGURACIÓN
    ----------------------------------------------------------- */
-const API_URL = "https://script.google.com/macros/s/AKfycbwXRIDuEOPl1IFk_LuDLSg2mXt0pC9lItt1VOWJilv3I80LHue4AJQ0Tjwj33CypaGj/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbxHd8diizkuxYtDzh0Tw_ulSRvDTVByXej4REyfAs3nJqQsZ51NDg2A8WuF1n8hx8J1/exec";
 
 // ESCALABILIDAD — envoltorio central para toda llamada a la API, con límite
 // de tiempo. Sin esto, si algo entre el navegador y Google se cuelga (una
@@ -2162,17 +2250,63 @@ async function apiFetch(url, options, timeoutMs){
 async function postWithLockRetry_(body, timeoutMs, maxRetries){
   const retries = maxRetries === undefined ? 2 : maxRetries;
   for(let attempt = 0; ; attempt++){
-    const res = await apiFetch(API_URL, {
-      method: "POST",
-      headers: { "Content-Type": "text/plain;charset=utf-8" },
-      body: JSON.stringify(body)
-    }, timeoutMs);
-    const data = await res.json();
-    if(data.status === "error" && data.code === "locked" && attempt < retries){
-      await new Promise(r => setTimeout(r, 1500 + Math.random() * 1500));
-      continue;
+    try{
+      const res = await apiFetch(API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify(body)
+      }, timeoutMs);
+      const data = await res.json();
+      if(data.status === "error" && data.code === "locked" && attempt < retries){
+        await new Promise(r => setTimeout(r, 1500 + Math.random() * 1500));
+        continue;
+      }
+      return data;
+    }catch(err){
+      // Un timeout aquí no significa que el backend no haya guardado el
+      // registro (Apps Script puede seguir procesando aunque el navegador
+      // ya cortó la espera) — reintentar automáticamente en vez de obligar
+      // a la persona a volver a darle clic. Si el registro ya se había
+      // creado, el backend responde "duplicate" y esta función simplemente
+      // devuelve ese resultado sin crear una fila repetida.
+      if(err && err.isTimeout && attempt < 1){
+        continue;
+      }
+      throw err;
     }
-    return data;
+  }
+}
+
+// Sube un archivo de portafolio con reintento automático: si falla por
+// timeout o error de red, reintenta un par de veces con una pausa corta
+// antes de rendirse, para que una falla puntual de conexión no obligue a
+// la persona a volver a darle "Registrarme" a mano.
+async function uploadPortfolioFileWithRetry_(file, maxRetries){
+  const retries = maxRetries === undefined ? 2 : maxRetries;
+  for(let attempt = 0; ; attempt++){
+    try{
+      const archivoBase64 = await fileToBase64(file);
+      const uploadRes = await apiFetch(API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify({
+          action: "uploadPortfolioFile",
+          archivoBase64: archivoBase64,
+          archivoNombre: file.name
+        })
+      }, 150000);
+      const uploadData = await uploadRes.json();
+      if(uploadData.status !== "ok"){
+        throw new Error(uploadData.message || `No se pudo subir "${file.name}".`);
+      }
+      return uploadData;
+    }catch(err){
+      if(attempt < retries){
+        await new Promise(r => setTimeout(r, 2000 + Math.random() * 2000));
+        continue;
+      }
+      throw err;
+    }
   }
 }
 
@@ -2356,7 +2490,7 @@ const TRANSLATIONS = {
     habilidades_placeholder: "Ej: Photoshop, Illustrator, Branding, Copywriting",
 
     rates_legend: "Tarifas y paquetes",
-    rates_privacy_note: "Esta información es privada: NO se muestra en el directorio público ni en tu perfil visible. Solo la puede ver la administración, para fines internos.",
+    rates_privacy_note: "Esta tarifa NO se muestra en el Directorio comunitario ni en tu perfil visible aquí — así evitamos que se genere competencia de precios entre ustedes; cada quien conoce solo su propia tarifa. Se usa exclusivamente para el programa de agencia internacional (empresas en Alemania/Europa que contratan a través de nosotras). Nuestro compromiso: el monto que pongas aquí es exactamente lo que se te paga cuando te contraten por esa vía — ni más, ni menos. Sé honesto/a al ponerlo: hacemos estudios de mercado constantemente, y una tarifa muy por encima de lo real solo para cobrar más no será tomada en cuenta.",
     tarifa_hora_label: "Tarifa por hora (USD)",
     tarifa_hora_placeholder: "Ej: 15",
     paquetes_label: "Paquetes de trabajo",
@@ -4207,7 +4341,12 @@ function enterCreateMode(){
   hintCreate.classList.remove("hidden");
   hintEdit.classList.add("hidden");
   document.getElementById("terms-field-wrap").classList.remove("hidden");
-  document.getElementById("terms-check").checked = false;
+  termsAccepted = false;
+  submitBtn.disabled = true;
+  document.getElementById("terms-accept-btn").disabled = true;
+  const hint = document.getElementById("terms-status-hint");
+  hint.textContent = "Debes leerlos hasta el final y aceptarlos para poder registrarte.";
+  hint.classList.remove("accepted");
   updateLoginRecoveryVisibility();
 }
 
@@ -4232,6 +4371,7 @@ function enterEditMode(person, role, id, adminMode){
   editingRole = role;
   isAdminEditing = !!adminMode;
   document.getElementById("terms-field-wrap").classList.add("hidden");
+  submitBtn.disabled = false;
 
   form.querySelector(`input[name="role"][value="${role}"]`).checked = true;
   roleInputs.forEach(r=> r.disabled = true);
@@ -4362,14 +4502,13 @@ form.addEventListener("submit", async (e)=>{
     }
   }
 
-  // Bloqueo: aceptar T&C es obligatorio para registrarse (no se vuelve a pedir al editar).
-  if(formMode === "create"){
-    const termsCheck = document.getElementById("terms-check");
-    if(!termsCheck.checked){
-      alert("Antes de registrarte debes leer y aceptar los Términos y Condiciones (marca la casilla debajo del formulario).");
-      termsCheck.focus();
-      return;
-    }
+  // Bloqueo: aceptar T&C es obligatorio para registrarse (no se vuelve a pedir al
+  // editar). El botón "Registrarme" ya empieza inhabilitado hasta que se acepta
+  // en la ventana emergente; esto es un resguardo adicional, no la única barrera.
+  if(formMode === "create" && !termsAccepted){
+    alert("Antes de registrarte debes leer y aceptar los Términos y Condiciones.");
+    openTermsModal();
+    return;
   }
 
   const whatsapp = document.getElementById("whatsapp").value.trim();
@@ -4554,30 +4693,21 @@ form.addEventListener("submit", async (e)=>{
       for(let i=0; i<portafolioItems.length; i++){
         const it = portafolioItems[i];
         it.archivos = it.archivos || [];
-        const newFiles = it._newFiles || [];
-        for(let j=0; j<newFiles.length; j++){
+        it._newFiles = it._newFiles || [];
+        // Se saca cada archivo de _newFiles apenas termina de subirse (no al
+        // final del ítem completo): si algo falla a mitad de camino, lo ya
+        // subido queda a salvo y un reintento (automático o manual) solo
+        // vuelve a intentar lo que realmente falta, sin duplicar archivos.
+        while(it._newFiles.length){
           uploadedSoFar++;
           submitBtnText.textContent = totalNewFiles > 1
             ? `Subiendo archivo ${uploadedSoFar} de ${totalNewFiles}...`
             : `Subiendo portafolio ${i+1}...`;
-          const file = newFiles[j];
-          const archivoBase64 = await fileToBase64(file);
-          const uploadRes = await apiFetch(API_URL, {
-            method: "POST",
-            headers: { "Content-Type": "text/plain;charset=utf-8" },
-            body: JSON.stringify({
-              action: "uploadPortfolioFile",
-              archivoBase64: archivoBase64,
-              archivoNombre: file.name
-            })
-          }, 120000);
-          const uploadData = await uploadRes.json();
-          if(uploadData.status !== "ok"){
-            throw new Error(uploadData.message || `No se pudo subir "${file.name}" (ítem de portafolio ${i+1}).`);
-          }
+          const file = it._newFiles[0];
+          const uploadData = await uploadPortfolioFileWithRetry_(file);
           it.archivos.push({ url: uploadData.url, nombre: file.name });
+          it._newFiles.shift();
         }
-        it._newFiles = [];
       }
       submitBtnText.textContent = formMode === "edit" ? "Guardando..." : "Enviando...";
     }
@@ -4601,10 +4731,12 @@ form.addEventListener("submit", async (e)=>{
       body.adminKey = sessionStorage.getItem(ADMIN_SESSION_KEY) || "";
     }
 
-    // 75s en vez de los 15s por defecto: este envío puede llevar el CV, la
-    // foto de perfil y los datos de portafolio juntos, y tanto 15s como 30s
-    // resultaron cortos en pruebas reales con Apps Script.
-    const data = await postWithLockRetry_(body, 75000);
+    // 150s en vez de los 15s por defecto: este envío puede llevar el CV, la
+    // foto de perfil y los datos de portafolio juntos, y 75s ya resultó
+    // corto en pruebas reales con Apps Script. postWithLockRetry_ además
+    // reintenta una vez sola si esto da timeout, en vez de obligar a la
+    // persona a volver a darle clic a "Registrarme".
+    const data = await postWithLockRetry_(body, 150000);
 
     if(data.status !== "ok"){
       if(data.code === "duplicate"){
@@ -4758,6 +4890,10 @@ function unlockDashboard(){
   navDashboardBtn.disabled = false;
   navDashboardBtn.classList.remove("locked");
   navDashboardBtn.innerHTML = "Directorio";
+  const scamBtn = document.getElementById("nav-scam-btn");
+  scamBtn.disabled = false;
+  scamBtn.classList.remove("locked");
+  scamBtn.title = "Reportar un posible estafador";
 }
 
 // El botón "Registro" se bloquea solo cuando ya se usaron los 2 registros posibles.
@@ -4830,13 +4966,48 @@ function closeGuideModal(){
 document.getElementById("guide-modal-close").addEventListener("click", closeGuideModal);
 document.getElementById("guide-modal-overlay").addEventListener("click", closeGuideModal);
 
-// El link de T&C en el formulario abre la Guía y salta directo a la
-// sección de responsabilidad/T&C, en vez de mandar a la persona a leer
-// las otras 8 secciones para encontrarla.
-document.getElementById("open-terms-link").addEventListener("click", (e)=>{
+/* -----------------------------------------------------------
+   7.1 T&C — ventana emergente con scroll-gate (obligatoria para crear)
+   ----------------------------------------------------------- */
+let termsAccepted = false;
+const termsModal = document.getElementById("terms-modal");
+const termsScrollBody = document.getElementById("terms-scroll-body");
+const termsAcceptBtn = document.getElementById("terms-accept-btn");
+const termsStatusHint = document.getElementById("terms-status-hint");
+
+function openTermsModal(){
+  termsModal.classList.remove("hidden");
+  termsModal.setAttribute("aria-hidden","false");
+  // Si el texto ya cabe entero sin scroll, no tiene sentido bloquear "Aceptar".
+  if(termsScrollBody.scrollHeight <= termsScrollBody.clientHeight + 4){
+    termsAcceptBtn.disabled = false;
+  }
+}
+function closeTermsModal(){
+  termsModal.classList.add("hidden");
+  termsModal.setAttribute("aria-hidden","true");
+}
+document.getElementById("open-terms-link").addEventListener("click", openTermsModal);
+document.getElementById("terms-modal-close").addEventListener("click", closeTermsModal);
+document.getElementById("terms-modal-overlay").addEventListener("click", closeTermsModal);
+document.getElementById("terms-open-guide-link").addEventListener("click", (e)=>{
   e.preventDefault();
+  closeTermsModal();
   openGuideModal();
   document.getElementById("terms-section").scrollIntoView({ block: "start" });
+});
+
+termsScrollBody.addEventListener("scroll", ()=>{
+  const reachedEnd = termsScrollBody.scrollTop + termsScrollBody.clientHeight >= termsScrollBody.scrollHeight - 8;
+  if(reachedEnd) termsAcceptBtn.disabled = false;
+});
+
+termsAcceptBtn.addEventListener("click", ()=>{
+  termsAccepted = true;
+  submitBtn.disabled = false;
+  termsStatusHint.textContent = "✔ Ya leíste y aceptaste los Términos y Condiciones.";
+  termsStatusHint.classList.add("accepted");
+  closeTermsModal();
 });
 
 /* -----------------------------------------------------------
@@ -5223,6 +5394,18 @@ function buildModalHtml(person){
     return `<div class="modal-exp-item">${titulo}${desc}${habilidadesLine}${carouselHtml}</div>`;
   }).join("");
 
+  // Paquetes de trabajo: públicos desde MEJORA §14.5 — título y "qué
+  // incluye" se muestran a cualquiera, el precio se queda oculto (el
+  // backend ya lo quita en el GET no-admin, esto es un segundo resguardo).
+  const paquetesItemsData = parsePaquetes_(person.paquetes || "");
+  const paquetesHtml = paquetesItemsData
+    .filter(it => (it.titulo||"").trim() || (it.incluye||"").trim())
+    .map(it=>{
+      const titulo = it.titulo ? `<strong>${escapeHtml(it.titulo)}</strong>` : "";
+      const incluye = it.incluye ? `<p>${escapeHtml(it.incluye)}</p>` : "";
+      return `<div class="modal-exp-item">${titulo}${incluye}</div>`;
+    }).join("");
+
   const waDigits = (whatsapp||"").replace(/\D/g,"");
   const initials = name.split(" ").map(w=>w[0]).slice(0,2).join("").toUpperCase();
 
@@ -5332,6 +5515,13 @@ function buildModalHtml(person){
           <div class="modal-section" id="modal-portfolio-section" data-field="portafolio">
             <h3 class="modal-section-title">Portafolio</h3>
             ${portafolioHtml}
+          </div>
+        ` : ""}
+
+        ${paquetesHtml ? `
+          <div class="modal-section" data-field="paquetes">
+            <h3 class="modal-section-title">Paquetes de trabajo</h3>
+            ${paquetesHtml}
           </div>
         ` : ""}
       </div>
