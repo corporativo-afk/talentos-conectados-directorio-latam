@@ -2281,7 +2281,7 @@ textarea{ resize: vertical; min-height: 110px; }
 /* -----------------------------------------------------------
    1. CONFIGURACIÓN
    ----------------------------------------------------------- */
-const API_URL = "https://script.google.com/macros/s/AKfycbwUXuB-dx1nYdFvsdqC6fafqsw_7fyX6Cy93zrKaxOpk6txytd3NLZJOvj5zgY-HlwP/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbwYFaL9IUKHQmX_CqCQn4TDviomQsaEvfbfyKSgew7WIQa7caobFjLznfY1_RTpf6z-/exec";
 
 // ESCALABILIDAD — envoltorio central para toda llamada a la API, con límite
 // de tiempo. Sin esto, si algo entre el navegador y Google se cuelga (una
@@ -3548,22 +3548,23 @@ function buildPortfolioThumb_(file, pIdx, fIdx){
 }
 
 // Repite el set de miniaturas las veces necesarias para que el primer tramo
-// (antes de duplicar) ya tenga recorrido visible aunque haya 1 solo archivo,
-// y luego duplica ese tramo completo para el loop perfecto con
-// translateX(-50%) sin salto visible al reiniciar.
-// La cinta muestra exactamente los archivos que hay (1, 2, 3...), sin
-// repetirlos para "rellenar" el ancho — se duplica el set UNA sola vez
-// (A B A B) para poder animar un loop perfecto con translateX(-50%): con
-// solo 1 copia (A), el primer intento de esto se veía como un salto/tirón
-// en vez de un giro real, porque -50% de una sola miniatura es un
-// desplazamiento parcial que se corta a la mitad. Con 2 copias, aunque
-// haya un solo archivo, ese archivo "da la vuelta" de forma continua.
+// (antes de duplicar) tenga ancho suficiente para recorrer visiblemente el
+// carrusel, aunque haya 1 solo archivo — con muy pocas miniaturas ese tramo
+// queda más angosto que el propio carrusel, y el loop con translateX(-50%)
+// se ve como un salto/tirón en vez de un recorrido real (esto fue lo que
+// reportó Mariangel con ítems de 1 solo archivo). Luego se duplica el tramo
+// YA repetido una vez más, para el loop perfecto sin salto al reiniciar.
 function buildPortfolioCarousel_(archivosList, pIdx){
   if(!archivosList.length) return "";
-  const thumbsOnce = archivosList.map((f, fIdx) => buildPortfolioThumb_(f, pIdx, fIdx)).join("");
+  const MIN_THUMBS = 6;
+  const repeats = Math.max(1, Math.ceil(MIN_THUMBS / archivosList.length));
+  let thumbsRepeated = "";
+  for(let r = 0; r < repeats; r++){
+    thumbsRepeated += archivosList.map((f, fIdx) => buildPortfolioThumb_(f, pIdx, fIdx)).join("");
+  }
   return `
     <div class="portfolio-carousel">
-      <div class="portfolio-carousel-track">${thumbsOnce}${thumbsOnce}</div>
+      <div class="portfolio-carousel-track">${thumbsRepeated}${thumbsRepeated}</div>
     </div>
   `;
 }
