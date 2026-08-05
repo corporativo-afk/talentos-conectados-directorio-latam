@@ -1331,7 +1331,25 @@ textarea{ resize: vertical; min-height: 110px; }
 
 /* Con "todas las columnas" la tabla no cabe en ancho normal — scroll
    horizontal propio en vez de que se encoja o rompa el layout de la página. */
-.config-table-scroll{ overflow-x:auto; border-radius: var(--radius-sm); }
+/* Barra de scroll horizontal "espejo", pegada justo debajo de los títulos
+   de la tabla — sin esto, el scroll horizontal nativo queda al final de
+   la tabla y hay que bajar hasta el fondo (que puede ser muy largo) para
+   alcanzarlo. Se sincroniza por JS con el scroll real (ver
+   syncConfigTableTopScroll_). */
+.config-table-scroll-top{
+  overflow-x:auto; overflow-y:hidden;
+  height:16px;
+}
+.config-table-scroll-top-spacer{ height:1px; }
+/* La tabla en sí: scroll vertical Y horizontal contenidos aquí adentro,
+   con alto máximo — así nunca es la página completa la que se mueve,
+   solo esta caja. */
+.config-table-scroll{
+  overflow:auto;
+  max-height: 65vh;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+}
 .config-table{
   width:100%; border-collapse: collapse;
   background: var(--white); border-radius: var(--radius-sm);
@@ -1343,6 +1361,7 @@ textarea{ resize: vertical; min-height: 110px; }
 }
 .config-table th{
   background: var(--cream-soft); color: var(--blue-dk); font-weight:700;
+  position: sticky; top: 0; z-index: 1;
 }
 .config-table-actions{ display:flex; gap:6px; }
 .config-table-actions button{
@@ -2262,7 +2281,7 @@ textarea{ resize: vertical; min-height: 110px; }
 /* -----------------------------------------------------------
    1. CONFIGURACIÓN
    ----------------------------------------------------------- */
-const API_URL = "https://script.google.com/macros/s/AKfycbzrrCTLzWcWtnQwUdXqEdo7-1zbMgu1E9igm0DW7uEF0bwe8aFhnCJ19NCiYBmH463M/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbwUXuB-dx1nYdFvsdqC6fafqsw_7fyX6Cy93zrKaxOpk6txytd3NLZJOvj5zgY-HlwP/exec";
 
 // ESCALABILIDAD — envoltorio central para toda llamada a la API, con límite
 // de tiempo. Sin esto, si algo entre el navegador y Google se cuelga (una
@@ -6219,7 +6238,10 @@ function renderConfigDatabaseTable(list){
   }
   const sorted = [...list].sort((a,b)=> new Date(b.timestamp||0) - new Date(a.timestamp||0));
   container.innerHTML = `
-    <div class="config-table-scroll">
+    <div class="config-table-scroll-top" id="config-table-scroll-top">
+      <div class="config-table-scroll-top-spacer" id="config-table-scroll-top-spacer"></div>
+    </div>
+    <div class="config-table-scroll" id="config-table-scroll">
       <table class="config-table">
         <thead>
           <tr>
@@ -6241,6 +6263,7 @@ function renderConfigDatabaseTable(list){
       </table>
     </div>
   `;
+  syncConfigTableTopScroll_();
 
   container.querySelectorAll("tr[data-id]").forEach(row=>{
     const id = row.dataset.id;
@@ -6279,6 +6302,34 @@ function renderConfigDatabaseTable(list){
         alert("Hubo un problema al eliminar el registro.");
       }
     });
+  });
+}
+
+// Sincroniza la barra de scroll horizontal "espejo" (arriba, debajo de los
+// títulos) con el scroll real de la tabla — para que Mariangel pueda mover
+// la tabla horizontalmente sin tener que bajar hasta el final. requestAnimationFrame
+// espera a que el navegador termine de calcular el ancho real de la tabla
+// recién insertada (si se lee scrollWidth de inmediato puede dar 0).
+function syncConfigTableTopScroll_(){
+  const top = document.getElementById("config-table-scroll-top");
+  const spacer = document.getElementById("config-table-scroll-top-spacer");
+  const real = document.getElementById("config-table-scroll");
+  if(!top || !spacer || !real) return;
+  requestAnimationFrame(()=>{
+    spacer.style.width = real.scrollWidth + "px";
+  });
+  let syncing = false;
+  top.addEventListener("scroll", ()=>{
+    if(syncing) return;
+    syncing = true;
+    real.scrollLeft = top.scrollLeft;
+    syncing = false;
+  });
+  real.addEventListener("scroll", ()=>{
+    if(syncing) return;
+    syncing = true;
+    top.scrollLeft = real.scrollLeft;
+    syncing = false;
   });
 }
 
@@ -6700,7 +6751,6 @@ document.getElementById("scam-report-form").addEventListener("submit", async (e)
     btn.textContent = "Enviar reporte";
   }
 });
-
 
 /* -----------------------------------------------------------
    17. ARRANQUE DE LA PÁGINA
