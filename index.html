@@ -222,9 +222,9 @@ button{ font-family: var(--font-body); cursor:pointer; }
    debe notar que está ahí. Se separa un poco del resto de botones. */
 .nav-btn.icon-only{
   border-color: transparent;
-  padding: 8px 10px;
-  font-size: 1rem;
-  opacity: .55;
+  padding: 6px 8px;
+  font-size: .8rem;
+  opacity: .22;
   margin-left: 6px;
 }
 .nav-btn.icon-only:hover:not(:disabled){
@@ -1743,6 +1743,16 @@ textarea{ resize: vertical; min-height: 110px; }
         <p class="field-hint" id="terms-status-hint">Debes leerlos hasta el final y aceptarlos para poder registrarte.</p>
       </div>
 
+      <!-- Solo visible cuando el admin edita un registro desde su panel — nunca
+           en el formulario público. Marca a Mariangel/Josie: las excluye de la
+           grilla pública y las fija arriba en "Sobre nosotras" con sus datos reales. -->
+      <div class="field hidden" id="admin-fundadora-field-wrap">
+        <label class="terms-check-label">
+          <input type="checkbox" id="admin-fundadora-check">
+          <span>Es fundadora (aparece fija arriba en "Sobre nosotras", no en la grilla pública)</span>
+        </label>
+      </div>
+
       <button type="submit" id="submit-btn" disabled>
         <span id="submit-btn-text" data-i18n="submit_create">Registrarme y desbloquear el Directorio</span>
       </button>
@@ -2203,7 +2213,7 @@ textarea{ resize: vertical; min-height: 110px; }
 /* -----------------------------------------------------------
    1. CONFIGURACIÓN
    ----------------------------------------------------------- */
-const API_URL = "https://script.google.com/macros/s/AKfycbxHd8diizkuxYtDzh0Tw_ulSRvDTVByXej4REyfAs3nJqQsZ51NDg2A8WuF1n8hx8J1/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbxYgSG6aO-A4RLHJz91sXheHehrrb-CP5WYDBPWW9KXBaPkI-3aygzMuY3YWdSfHuIy/exec";
 
 // ESCALABILIDAD — envoltorio central para toda llamada a la API, con límite
 // de tiempo. Sin esto, si algo entre el navegador y Google se cuelga (una
@@ -4341,6 +4351,7 @@ function enterCreateMode(){
   hintCreate.classList.remove("hidden");
   hintEdit.classList.add("hidden");
   document.getElementById("terms-field-wrap").classList.remove("hidden");
+  document.getElementById("admin-fundadora-field-wrap").classList.add("hidden");
   termsAccepted = false;
   submitBtn.disabled = true;
   document.getElementById("terms-accept-btn").disabled = true;
@@ -4432,6 +4443,11 @@ function enterEditMode(person, role, id, adminMode){
   tarifaHoraInput.value = person.tarifaHora || "";
   paquetesGroup.setItems(parsePaquetes_(person.paquetes));
   portafolioGroup.setItems(parsePortafolioItems_(person.portafolioItems));
+
+  // EsFundadora: solo el admin la ve y la puede tocar.
+  const fundadoraWrap = document.getElementById("admin-fundadora-field-wrap");
+  fundadoraWrap.classList.toggle("hidden", !isAdminEditing);
+  document.getElementById("admin-fundadora-check").checked = person.esFundadora === "Sí";
 
   const countrySel = document.getElementById("country");
   countrySel.value = COUNTRIES.includes(person.country) ? person.country : "";
@@ -4729,6 +4745,7 @@ form.addEventListener("submit", async (e)=>{
     if(formMode === "edit" && isAdminEditing){
       body.adminOverride = true;
       body.adminKey = sessionStorage.getItem(ADMIN_SESSION_KEY) || "";
+      body.esFundadora = document.getElementById("admin-fundadora-check").checked ? "Sí" : "No";
     }
 
     // 150s en vez de los 15s por defecto: este envío puede llevar el CV, la
@@ -5138,10 +5155,8 @@ function renderCards(){
 
   const filtered = directoryData.filter(person=>{
     if((person.role || "") !== currentTab) return false;
-    // Solo el registro puntual que quedó fijado arriba en "Sobre nosotras"
-    // se excluye de la grilla — si por coincidencia hay otro registro con
-    // el mismo nombre, ese se queda en la grilla como cualquier otro (ver
-    // updateFounderCardsFromDirectory_).
+    // Los registros con EsFundadora="Sí" quedan fijados arriba en "Sobre
+    // nosotras" y se excluyen de la grilla pública (ver updateFounderCardsFromDirectory_).
     if(founderRealRecord_ && person.id === founderRealRecord_.id) return false;
     if(cofounderRealRecord_ && person.id === cofounderRealRecord_.id) return false;
     const name = (person.name || "").toLowerCase();
@@ -5635,16 +5650,20 @@ document.addEventListener("keydown", (e)=>{
   if(e.key === "Escape"){ closeModal(); closeGuideModal(); closeAdminModal(); closeDonateModal(); }
 });
 
-// Se llama cada vez que se recarga el directorio: si Mariangel/Joesy ya se
-// registraron como Profesional normal (ver FOUNDER_NAMES), reemplaza los
+// Se llama cada vez que se recarga el directorio: cualquier registro con
+// EsFundadora="Sí" (campo admin-only, ver script.gs) reemplaza los
 // placeholders (avatar, nombre, subtítulo, y el perfil que abre "Ver
-// Perfil") por sus datos reales — se actualiza solo cuando editen su
-// perfil, sin tocar código de nuevo.
+// Perfil") por sus datos reales — se actualiza solo cuando el admin marque
+// la casilla desde su panel, sin tocar código de nuevo. Ya no se hace
+// matching por nombre exacto (era frágil: cualquiera podía registrarse con
+// el mismo nombre y aparecer como fundadora).
 let founderRealRecord_ = null;
 let cofounderRealRecord_ = null;
 
-function findFounderRecord_(founderName){
-  return directoryData.find(p => p.role === "Profesional" && p.name === founderName) || null;
+function getFundadoraRecords_(){
+  return directoryData
+    .filter(p => p.role === "Profesional" && p.esFundadora === "Sí")
+    .sort((a,b) => new Date(a.timestamp) - new Date(b.timestamp));
 }
 
 function updateFounderCard_(fallbackName, avatarElId, nameElId, subtitleElId, record){
@@ -5662,8 +5681,9 @@ function updateFounderCard_(fallbackName, avatarElId, nameElId, subtitleElId, re
 }
 
 function updateFounderCardsFromDirectory_(){
-  founderRealRecord_ = findFounderRecord_(FOUNDER_NAMES[0]);
-  cofounderRealRecord_ = findFounderRecord_(FOUNDER_NAMES[1]);
+  const fundadoras = getFundadoraRecords_();
+  founderRealRecord_ = fundadoras[0] || null;
+  cofounderRealRecord_ = fundadoras[1] || null;
   updateFounderCard_(FOUNDER_NAMES[0], "founder-avatar", "founder-name", "founder-subtitle", founderRealRecord_);
   updateFounderCard_(FOUNDER_NAMES[1], "cofounder-avatar", "cofounder-name", "cofounder-subtitle", cofounderRealRecord_);
 }
@@ -6063,6 +6083,7 @@ const CONFIG_DB_COLUMNS = [
   { key: "fotoPerfilUrl", label: "Foto" },
   { key: "portafolioItems", label: "Ítems portafolio" },
   { key: "editado", label: "Editado" },
+  { key: "esFundadora", label: "Fundadora" },
   { key: "timestamp", label: "Fecha registro" }
 ];
 
