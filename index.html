@@ -1249,6 +1249,26 @@ textarea{ resize: vertical; min-height: 110px; }
   display:flex; flex-direction:column; gap:2px;
 }
 .admin-result-rates b{ color: var(--blue-dk); }
+
+/* Correos masivos — filtros combinables + selección manual */
+.bulk-filters-grid{
+  display:grid; grid-template-columns: repeat(auto-fit, minmax(160px,1fr));
+  gap:10px 14px; margin-bottom:10px;
+}
+.bulk-filters-grid .field{ margin-bottom:0; }
+.admin-bulk-list{
+  max-height:260px; overflow-y:auto;
+  border:1px solid var(--border); border-radius: var(--radius-sm);
+  padding:6px; background: var(--white);
+}
+.admin-bulk-row{
+  display:flex; align-items:center; gap:10px;
+  padding:7px 8px; font-size:.85rem; border-radius:8px;
+}
+.admin-bulk-row:hover{ background: var(--cream-soft); }
+.admin-bulk-row input[type=checkbox]{ flex-shrink:0; width:16px; height:16px; }
+.admin-bulk-row .abr-name{ font-weight:600; }
+.admin-bulk-row .abr-meta{ color:#777; font-size:.8rem; }
 .admin-result-actions{ display:flex; gap:6px; flex-shrink:0; }
 .admin-result-actions button{
   border:none; border-radius:999px; padding:6px 12px; font-weight:700; font-size:.78rem;
@@ -1959,6 +1979,35 @@ textarea{ resize: vertical; min-height: 110px; }
             <option value="Profesional">Solo Profesionales</option>
           </select>
         </div>
+
+        <p class="admin-hint">Puedes combinar estos filtros con la Audiencia de arriba (ej. Profesionales + Nicho "Salud" + Profesión "Edición de video" al mismo tiempo).</p>
+        <div class="bulk-filters-grid">
+          <div class="field">
+            <label for="bulk-filter-country">País</label>
+            <select id="bulk-filter-country"><option value="">Todos los países</option></select>
+          </div>
+          <div class="field">
+            <label for="bulk-filter-profession">Profesión</label>
+            <select id="bulk-filter-profession"><option value="">Todas las profesiones</option></select>
+          </div>
+          <div class="field">
+            <label for="bulk-filter-niche">Nicho</label>
+            <select id="bulk-filter-niche"><option value="">Todos los nichos</option></select>
+          </div>
+          <div class="field">
+            <label for="bulk-filter-english">Nivel de inglés</label>
+            <select id="bulk-filter-english"><option value="">Todos los niveles</option></select>
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="bulk-manual-search">Selección manual (opcional)</label>
+          <p class="field-hint">Si marcas a alguien aquí, el correo se envía SOLO a las personas marcadas — la Audiencia y los filtros de arriba se ignoran.</p>
+          <input type="text" id="bulk-manual-search" placeholder="Buscar por nombre para marcar personas puntuales...">
+          <p id="bulk-manual-count" class="admin-hint"></p>
+          <div id="bulk-manual-list" class="admin-bulk-list"></div>
+        </div>
+
         <div class="field">
           <label for="config-email-topic">¿De qué debe tratar el correo?</label>
           <textarea id="config-email-topic" placeholder="Ej: Invitar a la comunidad a un evento en vivo el próximo viernes sobre cómo mejorar su perfil..."></textarea>
@@ -2213,7 +2262,7 @@ textarea{ resize: vertical; min-height: 110px; }
 /* -----------------------------------------------------------
    1. CONFIGURACIÓN
    ----------------------------------------------------------- */
-const API_URL = "https://script.google.com/macros/s/AKfycbxYgSG6aO-A4RLHJz91sXheHehrrb-CP5WYDBPWW9KXBaPkI-3aygzMuY3YWdSfHuIy/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbzqWhVkTBqxoRRdSZt1z6GaFXUqILXYhEVioc2XnsOKJTeXm7GRQI-3N9jpH4sK1_-k/exec";
 
 // ESCALABILIDAD — envoltorio central para toda llamada a la API, con límite
 // de tiempo. Sin esto, si algo entre el navegador y Google se cuelga (una
@@ -3883,6 +3932,10 @@ function createChipPicker_(config){
 
   function syncHiddenInput(){
     hiddenEl.value = chips.join(", ");
+    // Dispara un evento "input" real para que cualquier listener genérico
+    // enganchado al campo (ej. el de los ítems de portafolio, que escucha
+    // "input" en todos sus [data-key]) se entere del cambio sin código aparte.
+    hiddenEl.dispatchEvent(new Event("input", { bubbles: true }));
   }
 
   function render(){
@@ -4061,8 +4114,13 @@ function renderPortafolio(){
         <textarea data-key="descripcion" rows="3" maxlength="300" placeholder="Cuenta brevemente de qué se trata...">${escapeHtml(item.descripcion||"")}</textarea>
       </div>
       <div class="field">
-        <label>Habilidades usadas</label>
-        <input type="text" data-key="habilidades" maxlength="150" value="${escapeAttr(item.habilidades||"")}" placeholder="Ej: Photoshop, Branding">
+        <label>Habilidades usadas <span class="opt">(opcional)</span></label>
+        <div class="chip-box" id="pf-hab-chip-box-${idx}">
+          <div class="chip-list" id="pf-hab-chips-${idx}"></div>
+          <input type="text" id="pf-hab-search-${idx}" placeholder="Escribe para buscar una habilidad..." autocomplete="off">
+        </div>
+        <div class="chip-suggestions hidden" id="pf-hab-suggestions-${idx}"></div>
+        <input type="hidden" data-key="habilidades" id="pf-hab-hidden-${idx}" value="${escapeAttr(item.habilidades||"")}">
       </div>
       <div class="field">
         <label>Archivos <span class="opt">(opcional, hasta ${PORTAFOLIO_FILES_PER_ITEM_MAX} — foto, video, PDF, Word, Excel, PowerPoint o Google Docs/Sheets, máx ${PORTAFOLIO_MAX_MB}MB c/u)</span></label>
@@ -4081,6 +4139,15 @@ function renderPortafolio(){
         portafolioItems[idx][e.target.dataset.key] = e.target.value;
       });
     });
+    // Habilidades usadas: mismo buscador de chips que el campo general de
+    // Habilidades del perfil (createChipPicker_), instanciado por ítem — se
+    // vuelve a crear en cada render porque el DOM del ítem se recrea entero.
+    createChipPicker_({
+      chipsElId: `pf-hab-chips-${idx}`, searchElId: `pf-hab-search-${idx}`,
+      suggestionsElId: `pf-hab-suggestions-${idx}`, hiddenElId: `pf-hab-hidden-${idx}`,
+      sourceList: SKILLS_SUGGESTIONS, max: HABILIDADES_MAX,
+      emptyLabel: "como habilidad libre", placeholderIdle: "Escribe para buscar una habilidad..."
+    }).set(portafolioItems[idx].habilidades || "");
     const fileInput = card.querySelector("[data-item-file-idx]");
     if(fileInput){
       fileInput.addEventListener("change", ()=>{
@@ -5924,6 +5991,10 @@ function selectConfigTab(tabName){
   if(tabName === "scam-reports"){
     loadScamReports();
   }
+  if(tabName === "bulk-email"){
+    loadBulkFilterOptionsOnce_();
+    renderBulkManualList_();
+  }
 }
 configTabBtns.forEach(btn=>{
   btn.addEventListener("click", ()=> selectConfigTab(btn.dataset.tab));
@@ -6280,6 +6351,72 @@ document.getElementById("config-announcement-save-btn").addEventListener("click"
   }
 });
 
+/* ---------- TAB 4: Correos masivos — filtros combinables + selección manual ---------- */
+let bulkFilterOptionsLoaded_ = false;
+const bulkFilterCountry = document.getElementById("bulk-filter-country");
+const bulkFilterProfession = document.getElementById("bulk-filter-profession");
+const bulkFilterNiche = document.getElementById("bulk-filter-niche");
+const bulkFilterEnglish = document.getElementById("bulk-filter-english");
+const bulkManualSearch = document.getElementById("bulk-manual-search");
+const bulkManualList = document.getElementById("bulk-manual-list");
+const bulkManualCount = document.getElementById("bulk-manual-count");
+// IDs marcados manualmente, se conservan aunque cambien los filtros/búsqueda.
+let bulkManualCheckedIds_ = new Set();
+
+function loadBulkFilterOptionsOnce_(){
+  if(bulkFilterOptionsLoaded_) return;
+  fillSelect(bulkFilterCountry, COUNTRIES);
+  fillSelect(bulkFilterProfession, PROFESSIONS);
+  fillSelect(bulkFilterNiche, NICHES);
+  fillSelect(bulkFilterEnglish, ENGLISH_LEVELS);
+  bulkFilterOptionsLoaded_ = true;
+}
+
+// Aplica Audiencia + los 4 filtros combinables (todos deben coincidir a la vez).
+function getBulkFilteredList_(){
+  const audience = document.getElementById("config-audience-select").value;
+  const country = bulkFilterCountry.value;
+  const profession = bulkFilterProfession.value;
+  const niche = bulkFilterNiche.value;
+  const english = bulkFilterEnglish.value;
+  return directoryData.filter(p=>{
+    if(audience && p.role !== audience) return false;
+    if(country && (p.country||"") !== country) return false;
+    if(profession && (p.profession||"") !== profession) return false;
+    if(niche && (p.niche||"") !== niche) return false;
+    if(english && (p.englishLevel||"") !== english) return false;
+    return true;
+  });
+}
+
+function renderBulkManualList_(){
+  const search = bulkManualSearch.value.trim().toLowerCase();
+  const list = getBulkFilteredList_().filter(p=>
+    !search || (p.name||"").toLowerCase().includes(search)
+  );
+  bulkManualCount.textContent = `${list.length} persona(s) coinciden con Audiencia + filtros de arriba.`;
+  bulkManualList.innerHTML = "";
+  list.slice(0, 300).forEach(p=>{
+    const row = document.createElement("label");
+    row.className = "admin-bulk-row";
+    row.innerHTML = `
+      <input type="checkbox" data-id="${escapeAttr(p.id)}" ${bulkManualCheckedIds_.has(String(p.id)) ? "checked" : ""}>
+      <span class="abr-name">${escapeHtml(p.name || "Sin nombre")}</span>
+      <span class="abr-meta">${escapeHtml(p.role || "")}${p.profession ? " · " + escapeHtml(p.profession) : ""}</span>
+    `;
+    row.querySelector("input").addEventListener("change", (e)=>{
+      const id = String(p.id);
+      if(e.target.checked) bulkManualCheckedIds_.add(id);
+      else bulkManualCheckedIds_.delete(id);
+    });
+    bulkManualList.appendChild(row);
+  });
+}
+
+[bulkFilterCountry, bulkFilterProfession, bulkFilterNiche, bulkFilterEnglish, document.getElementById("config-audience-select")]
+  .forEach(el => el.addEventListener("change", renderBulkManualList_));
+bulkManualSearch.addEventListener("input", renderBulkManualList_);
+
 /* ---------- TAB 4: Correos masivos con Gemini ---------- */
 document.getElementById("config-email-generate-btn").addEventListener("click", async ()=>{
   const topic = document.getElementById("config-email-topic").value.trim();
@@ -6331,14 +6468,31 @@ document.getElementById("config-email-send-btn").addEventListener("click", async
   const subject = document.getElementById("config-email-subject").value.trim();
   const body = document.getElementById("config-email-body").value.trim();
   const audience = document.getElementById("config-audience-select").value;
+  const manualIds = Array.from(bulkManualCheckedIds_);
+  const filters = {
+    country: bulkFilterCountry.value,
+    profession: bulkFilterProfession.value,
+    niche: bulkFilterNiche.value,
+    englishLevel: bulkFilterEnglish.value
+  };
+  const hasFilters = Object.values(filters).some(Boolean);
 
   if(!subject || !body){
     alert("El correo necesita asunto y contenido antes de enviarse.");
     return;
   }
 
-  const audienceLabel = audience === "Cliente" ? "SOLO Clientes" : audience === "Profesional" ? "SOLO Profesionales" : "TODOS los registrados";
-  const sure = confirm(`¿Enviar este correo a ${audienceLabel}? Esta acción no se puede deshacer.`);
+  let confirmMsg;
+  if(manualIds.length){
+    confirmMsg = `¿Enviar este correo a las ${manualIds.length} persona(s) que marcaste manualmente? Esta acción no se puede deshacer.`;
+  } else {
+    const audienceLabel = audience === "Cliente" ? "SOLO Clientes" : audience === "Profesional" ? "SOLO Profesionales" : "TODOS los registrados";
+    const filtersLabel = hasFilters
+      ? " con estos filtros: " + Object.entries(filters).filter(([,v])=>v).map(([k,v])=>v).join(", ")
+      : "";
+    confirmMsg = `¿Enviar este correo a ${audienceLabel}${filtersLabel}? Esta acción no se puede deshacer.`;
+  }
+  const sure = confirm(confirmMsg);
   if(!sure) return;
 
   const btn = document.getElementById("config-email-send-btn");
@@ -6348,12 +6502,9 @@ document.getElementById("config-email-send-btn").addEventListener("click", async
   document.getElementById("config-email-status").textContent = "";
 
   try{
-    // MEJORA E — el backend debe exponer la acción "sendBulkEmail", que
-    // recibe { subject, body, audience, adminKey }, envía el correo (con
-    // MailApp o GmailApp) a todos los registros que coincidan con
-    // "audience" ("Cliente" | "Profesional" | "" para todos), guarda un
-    // registro en una pestaña HISTORIAL_CORREOS de la hoja (fecha, asunto,
-    // audiencia, cantidadEnviados), y devuelve { status:"ok", sentCount }.
+    // El backend combina audience + los 4 filtros (país/profesión/nicho/
+    // inglés) con AND, salvo que manualIds venga con datos — en ese caso
+    // se ignora todo lo demás y se manda SOLO a esos IDs (ver handleSendBulkEmail_).
     const res = await apiFetch(API_URL, {
       method: "POST",
       headers: { "Content-Type": "text/plain;charset=utf-8" },
@@ -6362,6 +6513,11 @@ document.getElementById("config-email-send-btn").addEventListener("click", async
         subject: subject,
         body: body,
         audience: audience,
+        filterCountry: filters.country,
+        filterProfession: filters.profession,
+        filterNiche: filters.niche,
+        filterEnglishLevel: filters.englishLevel,
+        manualIds: manualIds,
         adminKey: sessionStorage.getItem(ADMIN_SESSION_KEY) || ""
       })
     });
@@ -6375,6 +6531,8 @@ document.getElementById("config-email-send-btn").addEventListener("click", async
     document.getElementById("config-email-subject").value = "";
     document.getElementById("config-email-body").value = "";
     document.getElementById("config-email-preview").classList.add("hidden");
+    bulkManualCheckedIds_.clear();
+    renderBulkManualList_();
   }catch(err){
     console.error(err);
     alert(err && err.isTimeout ? err.message : "Hubo un problema al enviar el correo. Revisa tu conexión.");
