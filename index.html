@@ -1369,6 +1369,8 @@ textarea{ resize: vertical; min-height: 110px; }
 }
 .config-table-actions .admin-edit-btn{ background: var(--blue-dk); color:var(--white); }
 .config-table-actions .admin-delete-btn{ background:#b33333; color:var(--white); }
+.config-table-actions .admin-exclude-btn{ background:#a15a00; color:var(--white); }
+.config-table-actions .admin-include-btn{ background:#1a7a3c; color:var(--white); }
 
 .metrics-grid{
   display:grid; grid-template-columns: repeat(auto-fit, minmax(160px,1fr));
@@ -1509,10 +1511,20 @@ textarea{ resize: vertical; min-height: 110px; }
           error de conexión) o estás entrando desde otro dispositivo/navegador, escribe aquí el
           mismo correo y teléfono con los que te registraste. No necesitas contraseña.
         </p>
-        <div class="lr-fields">
+        <div class="lr-fields" id="login-search-fields">
           <input type="tel" id="login-phone" placeholder="Tu teléfono, solo números, sin código de país" data-i18n-placeholder="login_phone_placeholder">
           <input type="email" id="login-email" placeholder="Tu correo registrado" data-i18n-placeholder="login_email_placeholder">
           <button type="button" id="login-recovery-btn" data-i18n="login_btn">Buscar mi registro</button>
+        </div>
+        <!-- Paso 2 (auditoría de seguridad 2026-08-05/06): antes esto
+             restauraba el acceso solo comparando contra datos que ya son
+             públicos en el directorio. Ahora se manda un código por correo
+             real a la dirección guardada, y hay que confirmarlo aquí antes
+             de restaurar nada. -->
+        <div class="lr-fields lr-code-fields hidden" id="login-code-fields">
+          <p class="field-hint">Te mandamos un código de 6 dígitos a tu correo. Escríbelo aquí (vence en 15 minutos).</p>
+          <input type="text" id="login-code" placeholder="Código de 6 dígitos" inputmode="numeric" maxlength="6">
+          <button type="button" id="login-confirm-code-btn">Confirmar código</button>
         </div>
       </div>
     </details>
@@ -1695,16 +1707,21 @@ textarea{ resize: vertical; min-height: 110px; }
         </div>
       </fieldset>
 
-      <!-- Portafolio estructurado: hasta 5 ítems con archivo, visible de inmediato en el perfil público -->
+      <!-- Ejemplos de trabajo (antes "Portafolio" — renombrado 2026-08-06:
+           la gente leía "Portafolio" y subía su portafolio COMPLETO con
+           contactos y redes, cuando esta sección es solo para archivos
+           sueltos sin contacto. El portafolio completo con contacto va en
+           el campo de link "Portafolio / Web" más abajo.
+           Hasta 3 ítems con archivo, visible de inmediato en el perfil público -->
       <fieldset class="field-group profile-structured-fieldset hidden">
-        <legend data-i18n="portafolio_items_legend">Portafolio</legend>
-        <p class="field-hint" data-i18n="portafolio_items_hint">Muestra hasta 5 trabajos tuyos. Se publican de inmediato en tu perfil, sin revisión previa. Máximo 5.</p>
+        <legend data-i18n="portafolio_items_legend">Ejemplos de trabajo</legend>
+        <p class="field-hint" data-i18n="portafolio_items_hint">Muestra hasta 3 trabajos tuyos. Se publican de inmediato en tu perfil, sin revisión previa. Máximo 3.</p>
         <div class="privacy-note privacy-note-danger">
           <span class="pn-icon">🚫</span>
-          <span data-i18n="portafolio_items_privacy_note">NUNCA incluyas datos de contacto (teléfono, correo, usuarios de redes, links) ni en el texto ni dentro del archivo. Este portafolio también se usa para presentarte ante empresas internacionales, donde el contacto directo con el freelancer SIEMPRE pasa por la agencia — es la única garantía real que podemos dar contra estafas ahí. Si metes datos de contacto, tu perfil no se elimina, pero queda fuera de esas oportunidades hasta que lo corrijas.</span>
+          <span data-i18n="portafolio_items_privacy_note">NUNCA incluyas datos de contacto (teléfono, correo, usuarios de redes, links) ni en el texto ni dentro del archivo. Estos ejemplos también se usan para presentarte ante empresas internacionales, donde el contacto directo con el freelancer SIEMPRE pasa por la agencia — es la única garantía real que podemos dar contra estafas ahí. Si tu portafolio completo tiene tus contactos, pégalo como link en el campo "Portafolio / Web" más abajo, NO subas esos archivos aquí. Si metes datos de contacto aquí, tu perfil no se elimina, pero queda fuera de esas oportunidades hasta que lo corrijas.</span>
         </div>
         <div class="repeatable-list" id="portafolio-list"></div>
-        <button type="button" class="repeatable-add-btn" id="portafolio-add-btn">+ Agregar ítem de portafolio</button>
+        <button type="button" class="repeatable-add-btn" id="portafolio-add-btn">+ Agregar ejemplo de trabajo</button>
       </fieldset>
 
       <!-- MEJORA C: Tarifas y paquetes privados (solo Profesional, NUNCA visibles en el directorio público) -->
@@ -1769,6 +1786,7 @@ textarea{ resize: vertical; min-height: 110px; }
         <div class="field">
           <label for="portfolio"><span data-i18n="portfolio_label">Link a Portafolio / Web</span> <span class="opt" data-i18n="tag_optional">(opcional)</span></label>
           <input type="url" id="portfolio" name="portfolio" placeholder="https://tusitio.com">
+          <p class="field-hint">Aquí sí puedes poner el link a tu portafolio completo (con tus redes o forma de contacto si quieres) — este link solo se muestra en el directorio comunitario, nunca se manda a empresas internacionales.</p>
         </div>
 
         <div class="field">
@@ -2281,7 +2299,7 @@ textarea{ resize: vertical; min-height: 110px; }
 /* -----------------------------------------------------------
    1. CONFIGURACIÓN
    ----------------------------------------------------------- */
-const API_URL = "https://script.google.com/macros/s/AKfycbwYFaL9IUKHQmX_CqCQn4TDviomQsaEvfbfyKSgew7WIQa7caobFjLznfY1_RTpf6z-/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbwR-0Uji8CjamOIM7AZWk0Et8_1rXidXbD31T2iXZCypn3oUS4L5irOpW-MBg_wwg/exec";
 
 // ESCALABILIDAD — envoltorio central para toda llamada a la API, con límite
 // de tiempo. Sin esto, si algo entre el navegador y Google se cuelga (una
@@ -2573,9 +2591,9 @@ const TRANSLATIONS = {
     tarifa_hora_placeholder: "Ej: 15",
     paquetes_label: "Paquetes de trabajo",
     paquetes_hint: "Ej: Básico, Avanzado, Premium — como en Upwork, pero sin tiempo de entrega (eso se conversa directo con el cliente). Máximo 3.",
-    portafolio_items_legend: "Portafolio",
-    portafolio_items_hint: "Muestra hasta 5 trabajos tuyos. Se publican de inmediato en tu perfil, sin revisión previa. Máximo 5.",
-    portafolio_items_privacy_note: "No incluyas datos de contacto (teléfono, correo, redes) ni en el texto ni dentro del archivo — el portafolio es visible públicamente.",
+    portafolio_items_legend: "Ejemplos de trabajo",
+    portafolio_items_hint: "Muestra hasta 3 trabajos tuyos. Se publican de inmediato en tu perfil, sin revisión previa. Máximo 3.",
+    portafolio_items_privacy_note: "NUNCA incluyas datos de contacto (teléfono, correo, usuarios de redes, links) ni en el texto ni dentro del archivo. Estos ejemplos también se usan para presentarte ante empresas internacionales, donde el contacto directo con el freelancer SIEMPRE pasa por la agencia — es la única garantía real que podemos dar contra estafas ahí. Si tu portafolio completo tiene tus contactos, pégalo como link en el campo \"Portafolio / Web\" más abajo, NO subas esos archivos aquí. Si metes datos de contacto aquí, tu perfil no se elimina, pero queda fuera de esas oportunidades hasta que lo corrijas.",
 
     pitch_label: "Preséntate",
     pitch_hint: `Cuéntanos quién eres, qué haces y qué buscas — este es tu resumen profesional y se mostrará en tu perfil completo, así que dale contexto. Ej: "Ayudo a marcas de e-commerce a vender más con videos que sí convierten. Llevo 3 años trabajando con marcas de belleza y moda..."`,
@@ -4077,14 +4095,16 @@ function updateProfileStructuredVisibility(role){
 }
 
 /* -----------------------------------------------------------
-   Portafolio estructurado (máx 5, cada ítem con su propio archivo).
+   Ejemplos de trabajo / portafolio estructurado (máx 3, cada ítem con su
+   propio archivo — bajado de 5 a 3 el 2026-08-06 porque a alguien se le
+   quedó pegada la subida con 5 y no pudo terminar de registrarse).
    Es un bloque repetible como Experiencia/Paquetes, pero con un manejo
    aparte porque cada ítem carga un File real (no solo texto): el archivo
    se sube a Drive por separado (acción "uploadPortfolioFile", una llamada
    liviana por archivo) ANTES del envío final del formulario, así el POST
    principal nunca carga varios archivos grandes juntos de una vez.
    ----------------------------------------------------------- */
-const PORTAFOLIO_MAX = 5;
+const PORTAFOLIO_MAX = 3;
 const PORTAFOLIO_FILES_PER_ITEM_MAX = 5;
 const PORTAFOLIO_MAX_MB = 50;
 const PORTAFOLIO_ACCEPT = "image/*,video/*,application/pdf,.doc,.docx,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.xls,.xlsx,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,.ppt,.pptx,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation";
@@ -4118,7 +4138,7 @@ function renderPortafolio(){
 
     card.innerHTML = `
       <div class="repeatable-item-head">
-        <strong>Portafolio ${idx+1}</strong>
+        <strong>Ejemplo de trabajo ${idx+1}</strong>
         <button type="button" class="repeatable-remove-btn" data-idx="${idx}">✕ Quitar</button>
       </div>
       <div class="field">
@@ -4208,7 +4228,7 @@ function renderPortafolio(){
 
   portafolioAddBtn.disabled = portafolioItems.length >= PORTAFOLIO_MAX;
   portafolioAddBtn.textContent = portafolioItems.length >= PORTAFOLIO_MAX
-    ? `+ Agregar ítem de portafolio (máximo ${PORTAFOLIO_MAX})`
+    ? `+ Agregar ejemplo de trabajo (máximo ${PORTAFOLIO_MAX})`
     : "+ Agregar ítem de portafolio";
 }
 
@@ -4753,6 +4773,20 @@ form.addEventListener("submit", async (e)=>{
     }
   }
 
+  // Alerta activa antes de guardar (2026-08-06): el aviso pasivo dentro del
+  // formulario no bastó — gente seguía subiendo su portafolio completo (con
+  // contactos/redes) en "Ejemplos de trabajo". Solo se muestra si hay al
+  // menos un archivo cargado en esa sección, y solo para Profesional.
+  if(role.value === "Profesional" && portafolioItems.some(it => (it.archivos||[]).length || (it._newFiles||[]).length)){
+    const confirmaSinContacto = confirm(
+      "Antes de guardar: los archivos de 'Ejemplos de trabajo' se muestran públicamente y también se usan para presentarte ante empresas internacionales.\n\n" +
+      "NUNCA deben tener tus datos de contacto (teléfono, correo, usuarios de redes) — eso es lo único que garantiza que no haya estafas ahí.\n\n" +
+      "Si quieres compartir tu portafolio completo con tus contactos, usa el campo de link \"Portafolio / Web\" más abajo, no subas esos archivos aquí.\n\n" +
+      "¿Confirmas que estos archivos NO tienen tus datos de contacto?"
+    );
+    if(!confirmaSinContacto) return;
+  }
+
   submitBtn.disabled = true;
   submitBtnText.textContent = formMode === "edit" ? "Guardando..." : "Enviando...";
 
@@ -4833,6 +4867,13 @@ form.addEventListener("submit", async (e)=>{
       body.adminOverride = true;
       body.adminKey = sessionStorage.getItem(ADMIN_SESSION_KEY) || "";
       body.esFundadora = document.getElementById("admin-fundadora-check").checked ? "Sí" : "No";
+    } else if(formMode === "edit"){
+      // Auto-edición (no admin): manda el editToken guardado en este
+      // dispositivo — el backend lo exige para confirmar que este
+      // dispositivo es el dueño del perfil (Finding 1, auditoría de
+      // seguridad 2026-08-05/06).
+      const registrosLocal = getLocalRegistros();
+      body.editToken = (registrosLocal[editingRole] && registrosLocal[editingRole].editToken) || "";
     }
 
     // 150s en vez de los 15s por defecto: este envío puede llevar el CV, la
@@ -4862,7 +4903,11 @@ form.addEventListener("submit", async (e)=>{
       const wasAdmin = isAdminEditing;
       if(!wasAdmin){
         const registros = getLocalRegistros();
-        registros[editingRole] = { id: editingId, editado: true };
+        // El backend puede devolver un editToken nuevo si este registro
+        // era viejo y todavía no tenía uno (se acuña en su primera edición
+        // tras el fix de seguridad) — siempre se refresca con lo que venga.
+        const editTokenPrevio = (registros[editingRole] && registros[editingRole].editToken) || "";
+        registros[editingRole] = { id: editingId, editado: true, editToken: data.editToken || editTokenPrevio };
         saveLocalRegistros(registros);
       }
 
@@ -4875,7 +4920,7 @@ form.addEventListener("submit", async (e)=>{
       dataLoaded = false;
 
       const registros = getLocalRegistros();
-      registros[payload.role] = { id: data.id, editado: false };
+      registros[payload.role] = { id: data.id, editado: false, editToken: data.editToken || "" };
       saveLocalRegistros(registros);
 
       document.getElementById("confirmation-title").textContent = "¡Listo, ya estás dentro!";
@@ -4916,10 +4961,19 @@ form.addEventListener("submit", async (e)=>{
 
 /* -----------------------------------------------------------
    8.1 PROBLEMAS 1 y 2 — Login por correo + teléfono
+   Auditoría de seguridad 2026-08-05/06 (Finding 1): antes esto comparaba
+   correo+teléfono contra el directorio PÚBLICO, sin probar nada real (esos
+   2 datos ya son públicos ahí). Ahora son 2 pasos: pedir código (se manda
+   por correo real a la dirección guardada) y confirmarlo — recién ahí el
+   backend entrega id+editToken.
    ----------------------------------------------------------- */
 const loginRecoveryBtn = document.getElementById("login-recovery-btn");
 const loginPhoneInput = document.getElementById("login-phone");
 const loginEmailInput = document.getElementById("login-email");
+const loginSearchFields = document.getElementById("login-search-fields");
+const loginCodeFields = document.getElementById("login-code-fields");
+const loginCodeInput = document.getElementById("login-code");
+const loginConfirmCodeBtn = document.getElementById("login-confirm-code-btn");
 
 loginRecoveryBtn.addEventListener("click", async ()=>{
   const phoneInput = loginPhoneInput.value.trim();
@@ -4932,37 +4986,72 @@ loginRecoveryBtn.addEventListener("click", async ()=>{
 
   loginRecoveryBtn.disabled = true;
   const originalText = loginRecoveryBtn.textContent;
-  loginRecoveryBtn.textContent = "Buscando...";
+  loginRecoveryBtn.textContent = "Enviando código...";
 
   try{
-    // Siempre se pide una lista fresca, para no restaurar acceso con datos viejos.
-    const list = await fetchDirectory();
-    directoryData = list;
-    dataLoaded = true;
-    registroEnviado = true;
-
-    const phoneDigits = normalizePhoneDigits(phoneInput);
-    const emailNorm = normalizeForCompare(emailInput);
-
-    // Puede haber hasta 2 coincidencias (una por rol) si la persona usó el
-    // mismo correo y teléfono para registrarse como Cliente Y Profesional.
-    // El teléfono guardado (WhatsApp) sí incluye código de país, así que se
-    // compara por sufijo contra los dígitos que la persona escribió aquí.
-    const matches = list.filter(person=>{
-      const personPhoneDigits = normalizePhoneDigits(person.whatsapp || "");
-      const personEmail = normalizeForCompare(person.email || "");
-      return phoneDigits && personPhoneDigits.endsWith(phoneDigits) && personEmail === emailNorm;
+    const res = await apiFetch(API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify({ action: "requestRecoveryCode", phone: phoneInput, email: emailInput })
     });
+    const data = await res.json();
 
-    if(matches.length === 0){
+    if(data.status !== "ok"){
+      alert(data.message || "No pudimos procesar la solicitud. Intenta de nuevo.");
+      return;
+    }
+    if(!data.found){
       alert("No encontramos ningún registro con ese teléfono y correo juntos. Verifica que ambos coincidan exactamente con los que usaste al registrarte.");
       return;
     }
 
+    loginSearchFields.classList.add("hidden");
+    loginCodeFields.classList.remove("hidden");
+    loginCodeInput.focus();
+
+  }catch(err){
+    console.error(err);
+    alert(err && err.isTimeout ? err.message : "No pudimos procesar la solicitud. Revisa tu conexión e inténtalo de nuevo.");
+  }finally{
+    loginRecoveryBtn.disabled = false;
+    loginRecoveryBtn.textContent = originalText;
+  }
+});
+
+loginConfirmCodeBtn.addEventListener("click", async ()=>{
+  const phoneInput = loginPhoneInput.value.trim();
+  const emailInput = loginEmailInput.value.trim();
+  const codeInput = loginCodeInput.value.trim();
+
+  if(!codeInput){
+    alert("Escribe el código de 6 dígitos que te llegó por correo.");
+    return;
+  }
+
+  loginConfirmCodeBtn.disabled = true;
+  const originalText = loginConfirmCodeBtn.textContent;
+  loginConfirmCodeBtn.textContent = "Confirmando...";
+
+  try{
+    const res = await apiFetch(API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify({ action: "confirmRecoveryCode", phone: phoneInput, email: emailInput, code: codeInput })
+    });
+    const data = await res.json();
+
+    if(data.status !== "ok"){
+      alert(data.message || "El código no es válido o ya venció. Pide uno nuevo.");
+      return;
+    }
+
+    directoryData = await fetchDirectory();
+    dataLoaded = true;
+    registroEnviado = true;
+
     const registros = getLocalRegistros();
-    matches.forEach(person=>{
-      const editadoBackend = String(person.editado||"").toLowerCase()==="sí" || String(person.editado||"").toLowerCase()==="si";
-      registros[person.role] = { id: person.id, editado: editadoBackend };
+    (data.registros || []).forEach(registro=>{
+      registros[registro.role] = { id: registro.id, editado: registro.editado, editToken: registro.editToken };
     });
     saveLocalRegistros(registros);
 
@@ -4971,16 +5060,19 @@ loginRecoveryBtn.addEventListener("click", async ()=>{
     document.getElementById("login-recovery-box").removeAttribute("open");
     loginPhoneInput.value = "";
     loginEmailInput.value = "";
+    loginCodeInput.value = "";
+    loginCodeFields.classList.add("hidden");
+    loginSearchFields.classList.remove("hidden");
     alert("¡Listo! Encontramos tu registro y restauramos tu acceso al Directorio.");
     switchView("view-dashboard");
     loadDirectoryData();
 
   }catch(err){
     console.error(err);
-    alert("No pudimos verificar tu registro. Revisa tu conexión e inténtalo de nuevo.");
+    alert(err && err.isTimeout ? err.message : "No pudimos confirmar el código. Revisa tu conexión e inténtalo de nuevo.");
   }finally{
-    loginRecoveryBtn.disabled = false;
-    loginRecoveryBtn.textContent = originalText;
+    loginConfirmCodeBtn.disabled = false;
+    loginConfirmCodeBtn.textContent = originalText;
   }
 });
 
@@ -5163,12 +5255,17 @@ async function fetchDirectory(){
 
 // MEJORA E — igual que fetchDirectory(), pero enviando la clave de admin,
 // para que el backend pueda incluir los campos privados (tarifaHora,
-// paquetes) SOLO en esta llamada. El backend debe validar la clave y
-// devolver esos 2 campos únicamente si adminKey es correcta; si no lo es
-// o viene vacía, debe comportarse igual que el GET público normal.
+// paquetes) SOLO en esta llamada. Va por POST con la clave en el body (no
+// en la URL como antes) — auditoría de seguridad 2026-08-05/06: una clave
+// en la URL queda guardada en el historial del navegador y en los logs de
+// ejecución de Apps Script.
 async function fetchDirectoryAdmin(){
   const key = sessionStorage.getItem(ADMIN_SESSION_KEY) || "";
-  const res = await apiFetch(`${API_URL}?adminKey=${encodeURIComponent(key)}`, { method: "GET" });
+  const res = await apiFetch(API_URL, {
+    method: "POST",
+    headers: { "Content-Type": "text/plain;charset=utf-8" },
+    body: JSON.stringify({ action: "getDirectoryAdmin", adminKey: key })
+  });
   const data = await res.json();
   const list = Array.isArray(data) ? data : (data.data || []);
   currentBanner = Array.isArray(data) ? "" : (data.banner || "");
@@ -5293,7 +5390,7 @@ function renderCards(){
         <span class="card-name">${escapeHtml(name)}</span>
       </div>
       <span class="card-meta">${escapeHtml(niche)}</span>
-      <button type="button" class="card-cta">${parsePortafolioItems_(person.portafolioItems || "").length ? "Ver Perfil Completo con portafolio →" : "Ver Perfil Completo →"}</button>
+      <button type="button" class="card-cta">${parsePortafolioItems_(person.portafolioItems || "").length ? "Ver Perfil Completo con ejemplos de trabajo →" : "Ver Perfil Completo →"}</button>
     `;
     card.querySelector(".card-cta").addEventListener("click", ()=> openModal(person));
     cardsGrid.appendChild(card);
@@ -5360,11 +5457,17 @@ async function selfDeleteProfile(role, id){
   const sure = confirm("¿Seguro que quieres salir del directorio? Tu perfil se eliminará completamente. Puedes volver a registrarte cuando quieras.");
   if(!sure) return;
 
+  // El backend exige el editToken guardado en este dispositivo para
+  // confirmar que es el dueño del perfil (ver Finding 1, auditoría de
+  // seguridad 2026-08-05/06).
+  const registrosLocal = getLocalRegistros();
+  const editTokenLocal = (registrosLocal[role] && registrosLocal[role].editToken) || "";
+
   try{
     const res = await apiFetch(API_URL, {
       method: "POST",
       headers: { "Content-Type": "text/plain;charset=utf-8" },
-      body: JSON.stringify({ action: "selfDelete", id: id })
+      body: JSON.stringify({ action: "selfDelete", id: id, editToken: editTokenLocal })
     });
     const data = await res.json();
     if(data.status !== "ok"){
@@ -5615,7 +5718,7 @@ function buildModalHtml(person){
 
         ${portafolioHtml ? `
           <div class="modal-section" id="modal-portfolio-section" data-field="portafolio">
-            <h3 class="modal-section-title">Portafolio</h3>
+            <h3 class="modal-section-title">Ejemplos de trabajo</h3>
             ${portafolioHtml}
           </div>
         ` : ""}
@@ -6256,6 +6359,9 @@ function renderConfigDatabaseTable(list){
               ${CONFIG_DB_COLUMNS.map(c => `<td>${renderConfigDatabaseCell_(person, c)}</td>`).join("")}
               <td class="config-table-actions">
                 <button type="button" class="admin-edit-btn" data-action="edit">✏️</button>
+                ${person.role === "Profesional" ? `
+                  <button type="button" class="${person.excluidoModeloB === "Sí" ? "admin-include-btn" : "admin-exclude-btn"}" data-action="toggle-excluir-alemania" title="${person.excluidoModeloB === "Sí" ? "Volver a incluir en Modelo B (Alemania)" : "Excluir de Modelo B (Alemania) — ej: puso datos de contacto en el portafolio"}">${person.excluidoModeloB === "Sí" ? "✅🇩🇪" : "🚫🇩🇪"}</button>
+                ` : ""}
                 <button type="button" class="admin-delete-btn" data-action="delete">🗑️</button>
               </td>
             </tr>
@@ -6274,6 +6380,45 @@ function renderConfigDatabaseTable(list){
     row.querySelector('[data-action="edit"]').addEventListener("click", ()=>{
       enterEditMode(person, person.role, person.id, true);
     });
+
+    const excluirBtn = row.querySelector('[data-action="toggle-excluir-alemania"]');
+    if(excluirBtn){
+      excluirBtn.addEventListener("click", async ()=>{
+        const yaExcluido = person.excluidoModeloB === "Sí";
+        const nuevoValor = !yaExcluido;
+        const mensaje = yaExcluido
+          ? `¿Volver a incluir a "${person.name || "Sin nombre"}" en Modelo B (Alemania)? Volverá a aparecer ahí en la próxima sincronización.`
+          : `¿Excluir a "${person.name || "Sin nombre"}" de Modelo B (Alemania)? Dejará de aparecer ahí en la próxima sincronización, hasta que lo vuelvas a incluir.`;
+        const sure = confirm(mensaje);
+        if(!sure) return;
+        excluirBtn.disabled = true;
+        try{
+          const res = await apiFetch(API_URL, {
+            method: "POST",
+            headers: { "Content-Type": "text/plain;charset=utf-8" },
+            body: JSON.stringify({
+              action: "toggleExcluirAlemania",
+              id: person.id,
+              excluir: nuevoValor,
+              adminKey: sessionStorage.getItem(ADMIN_SESSION_KEY) || ""
+            })
+          });
+          const data = await res.json();
+          if(data.status !== "ok"){
+            alert("No se pudo actualizar: " + (data.message || "error desconocido"));
+            excluirBtn.disabled = false;
+            return;
+          }
+          dataLoaded = false;
+          await loadAdminData();
+          filterConfigDatabase();
+        }catch(err){
+          console.error(err);
+          alert(err && err.isTimeout ? err.message : "Hubo un problema al actualizar. Revisa tu conexión.");
+          excluirBtn.disabled = false;
+        }
+      });
+    }
 
     row.querySelector('[data-action="delete"]').addEventListener("click", async ()=>{
       const sure = confirm(`¿Eliminar el registro de "${person.name || "Sin nombre"}"? Esta acción no se puede deshacer. (Quedará una copia en la pestaña RESPALDO de la hoja.)`);
@@ -6599,13 +6744,18 @@ async function loadEmailHistory(){
   const container = document.getElementById("config-history-list");
   container.innerHTML = "<p class=\"admin-hint\">Cargando historial...</p>";
   try{
-    // MEJORA E — el backend expone la acción "getEmailHistory" (GET con
-    // ?action=getEmailHistory&adminKey=... ), que lee la pestaña
+    // MEJORA E — el backend expone la acción "getEmailHistory" (POST, clave
+    // en el body — antes era GET con la clave en la URL, corregido en la
+    // auditoría de seguridad 2026-08-05/06), que lee la pestaña
     // HISTORIAL_CORREOS y devuelve { status:"ok", data: [ {fecha, asunto,
     // cuerpo, audiencia, cantidadEnviados}, ... ] }, ordenado del más
     // reciente al más antiguo.
     const key = sessionStorage.getItem(ADMIN_SESSION_KEY) || "";
-    const res = await apiFetch(`${API_URL}?action=getEmailHistory&adminKey=${encodeURIComponent(key)}`, { method: "GET" });
+    const res = await apiFetch(API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify({ action: "getEmailHistory", adminKey: key })
+    });
     const data = await res.json();
     const history = (data && data.data) ? data.data : [];
 
@@ -6661,12 +6811,17 @@ async function loadScamReports(){
   const container = document.getElementById("config-scam-list");
   container.innerHTML = "<p class=\"admin-hint\">Cargando reportes...</p>";
   try{
-    // El backend expone "getScamReports" (GET con ?action=getScamReports&adminKey=...),
-    // lee la pestaña REPORTES_ESTAFA y devuelve { status:"ok", data: [ {fecha,
-    // nombreReportado, contactoReportado, descripcion, reportadoPor}, ... ] },
-    // del más reciente al más antiguo.
+    // El backend expone "getScamReports" (POST, clave en el body — antes
+    // era GET con la clave en la URL, corregido en la auditoría de
+    // seguridad 2026-08-05/06), lee la pestaña REPORTES_ESTAFA y devuelve
+    // { status:"ok", data: [ {fecha, nombreReportado, contactoReportado,
+    // descripcion, reportadoPor}, ... ] }, del más reciente al más antiguo.
     const key = sessionStorage.getItem(ADMIN_SESSION_KEY) || "";
-    const res = await apiFetch(`${API_URL}?action=getScamReports&adminKey=${encodeURIComponent(key)}`, { method: "GET" });
+    const res = await apiFetch(API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify({ action: "getScamReports", adminKey: key })
+    });
     const data = await res.json();
     const reports = (data && data.data) ? data.data : [];
 
